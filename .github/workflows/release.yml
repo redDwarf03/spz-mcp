@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the tag matches the version in pyproject
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          pip install tomli
+          version=$(python -c "import tomli;print(tomli.load(open('pyproject.toml','rb'))['project']['version'])")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$version" != "$tag" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match project version $version"
+            exit 1
+          fi
+
+      - name: Build
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  github-release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+
+  # Off by default. The server installs fine straight from git
+  # (uvx --from git+https://github.com/redDwarf03/spz-mcp spz-mcp), so PyPI is
+  # optional. To turn it on:
+  #   1. claim the 'spz-mcp' name on PyPI
+  #   2. add a trusted publisher for this repo, workflow 'release.yml',
+  #      environment 'pypi'  (https://docs.pypi.org/trusted-publishers/)
+  #   3. set the repository variable PUBLISH_TO_PYPI to 'true'
+  # No token is stored anywhere: publishing authenticates over OIDC.
+  pypi:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && vars.PUBLISH_TO_PYPI == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

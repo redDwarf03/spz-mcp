@@ -3,4 +3,4 @@
 from .bridge import BridgeError, BridgeUnavailable, SpzBridge
 
 __version__ = "0.1.0"
-__all__ = ["SpzBridge", "BridgeError", "BridgeUnavailable", "__version__"]
+__all__ = ["BridgeError", "BridgeUnavailable", "SpzBridge", "__version__"]

@@ -81,7 +81,9 @@ class SpzBridge:
             request = {"id": str(next(self._ids)), "tool": tool, "params": payload}
 
             try:
-                self._writer.write((json.dumps(request, separators=(",", ":")) + "\n").encode("utf-8"))
+                self._writer.write(
+                    (json.dumps(request, separators=(",", ":")) + "\n").encode("utf-8")
+                )
                 await self._writer.drain()
                 raw = await asyncio.wait_for(self._reader.readline(), timeout=self.timeout)
             except (OSError, asyncio.TimeoutError) as exc:
@@ -98,7 +100,9 @@ class SpzBridge:
                 raise BridgeError(f"Malformed answer from the app: {exc}") from exc
 
             if not response.get("ok"):
-                raise BridgeError(response.get("error") or "The app reported an unspecified failure.")
+                raise BridgeError(
+                    response.get("error") or "The app reported an unspecified failure."
+                )
             return response.get("result")
 
     async def describe(self) -> dict[str, Any]:

@@ -79,6 +79,6 @@ async def test_connection_dropped_is_unavailable(fake):
 async def test_reconnects_after_a_drop(fake):
     bridge = SpzBridge(port=fake.port)
     await bridge.call("echo")
-    await bridge.close()          # simulate a lost connection
+    await bridge.close()  # simulate a lost connection
     assert await bridge.describe() == DESCRIBE_RESULT
     await bridge.close()

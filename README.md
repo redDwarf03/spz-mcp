@@ -1,5 +1,9 @@
 # spz-mcp
 
+[![CI](https://github.com/redDwarf03/spz-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/redDwarf03/spz-mcp/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.14-blue)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 An [MCP](https://modelcontextprotocol.io) server that lets an LLM agent drive
 [StableProjectorz](https://stableprojectorz.com) — inspect the loaded 3D model, read the
 app's state, look at the viewport, and trigger UI actions.
@@ -131,7 +135,39 @@ pytest
 ```
 
 The suite runs a fake bridge over a real TCP socket, so the client is exercised end to end
-without needing StableProjectorz running.
+without needing StableProjectorz running. Each test has a 30 s timeout: these all talk to a
+local socket and finish in milliseconds, so a hang is a bug and should fail rather than
+block the suite.
+
+Linting and formatting use [ruff](https://docs.astral.sh/ruff/):
+
+```bash
+ruff check .
+ruff format .
+```
+
+## CI/CD
+
+`ci.yml` runs on every push to `main` and every pull request:
+
+- **lint** — `ruff check` and `ruff format --check`
+- **test** — Python 3.10 through 3.14 on Linux, plus one Windows leg (the app this server
+  drives is Windows-first)
+- **build** — builds the wheel and sdist and validates the metadata with `twine check`
+
+`release.yml` runs on a `v*` tag. It refuses to proceed if the tag does not match the
+version in `pyproject.toml`, then builds and attaches the distributions to a GitHub
+release with generated notes.
+
+Publishing to PyPI is **off by default**, since the server installs fine straight from git.
+To enable it:
+
+1. claim the `spz-mcp` name on PyPI
+2. add a [trusted publisher](https://docs.pypi.org/trusted-publishers/) for this repo,
+   workflow `release.yml`, environment `pypi`
+3. set the repository variable `PUBLISH_TO_PYPI` to `true`
+
+No token is stored anywhere — publishing authenticates over OIDC.
 
 ## License
 

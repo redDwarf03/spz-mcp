@@ -9,7 +9,6 @@ from conftest import PNG_B64
 from spz_mcp.bridge import SpzBridge
 from spz_mcp.server import STATUS_TOOL, SpzServer, _input_schema
 
-
 # ---------------- input schema ----------------
 
 
@@ -33,7 +32,8 @@ def test_schema_without_params_rejects_extra_keys():
 
 
 def test_schema_falls_back_for_unknown_types():
-    assert _input_schema({"params": [{"name": "x", "type": "Vector2"}]})["properties"]["x"]["type"] == "string"
+    schema = _input_schema({"params": [{"name": "x", "type": "Vector2"}]})
+    assert schema["properties"]["x"]["type"] == "string"
 
 
 def test_schema_skips_unnamed_params():
