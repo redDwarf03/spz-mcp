@@ -61,6 +61,18 @@ async def test_concurrent_calls_are_serialised(fake):
     await bridge.close()
 
 
+async def test_response_larger_than_the_default_line_limit(fake):
+    """Regression: a real screenshot overran asyncio's 64 KiB readline default.
+
+    The whole answer arrives as a single line, so the stream limit has to be
+    raised or readline() raises LimitOverrunError on anything sizeable.
+    """
+    bridge = SpzBridge(port=fake.port)
+    result = await bridge.call("big")
+    assert len(result["blob"]) == 200_000
+    await bridge.close()
+
+
 async def test_app_not_running_is_unavailable():
     # Port 1 is reserved and nothing listens there.
     bridge = SpzBridge(port=1)

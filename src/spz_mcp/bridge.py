@@ -25,6 +25,12 @@ DEFAULT_PORT = 8765
 DEFAULT_TIMEOUT = 45.0
 CONNECT_TIMEOUT = 5.0
 
+# asyncio's StreamReader defaults to a 64 KiB line limit, which a screenshot blows
+# through immediately: a viewport PNG in base64 runs to megabytes and arrives as a
+# single line. Raise the ceiling rather than reframe the protocol, while still
+# letting an absurd response fail loudly instead of buffering without bound.
+MAX_RESPONSE_BYTES = 64 * 1024 * 1024
+
 
 class BridgeError(RuntimeError):
     """The app answered, but the command failed."""
@@ -60,7 +66,7 @@ class SpzBridge:
             return
         try:
             self._reader, self._writer = await asyncio.wait_for(
-                asyncio.open_connection(self.host, self.port),
+                asyncio.open_connection(self.host, self.port, limit=MAX_RESPONSE_BYTES),
                 timeout=CONNECT_TIMEOUT,
             )
         except (OSError, asyncio.TimeoutError) as exc:

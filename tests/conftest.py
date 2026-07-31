@@ -109,6 +109,10 @@ class FakeBridge:
                 "ok": True,
                 "result": {"image_png_base64": PNG_B64, "width": 8, "height": 4},
             }
+        if tool == "big":
+            # Comfortably past asyncio's default 64 KiB readline limit, which is
+            # what a real viewport screenshot looks like on the wire.
+            return {"id": rid, "ok": True, "result": {"blob": "x" * 200_000}}
         if tool == "boom":
             return {"id": rid, "ok": False, "error": "it exploded"}
         if tool == "echo":
