@@ -7,7 +7,13 @@ import asyncio
 import pytest
 from conftest import DESCRIBE_RESULT
 
-from spz_mcp.bridge import BridgeError, BridgeUnavailable, SpzBridge
+from spz_mcp.bridge import (
+    BridgeError,
+    BridgeUnavailable,
+    SpzBridge,
+    default_token_path,
+    read_token_file,
+)
 
 
 async def test_call_returns_result(fake):
@@ -59,6 +65,49 @@ async def test_concurrent_calls_are_serialised(fake):
     results = await asyncio.gather(*(bridge.call("echo", {"i": i}) for i in range(8)))
     assert [r["i"] for r in results] == list(range(8))
     await bridge.close()
+
+
+async def test_token_is_read_from_the_file_the_app_generates(fake, tmp_path):
+    token_file = tmp_path / "agent-bridge.token"
+    token_file.write_text("generated-secret\n", encoding="utf-8")
+
+    bridge = SpzBridge(port=fake.port, token_file=token_file)
+    await bridge.call("echo")
+    assert fake.seen[-1]["params"]["token"] == "generated-secret"
+    await bridge.close()
+
+
+async def test_explicit_token_wins_over_the_file(fake, tmp_path):
+    token_file = tmp_path / "agent-bridge.token"
+    token_file.write_text("from-file", encoding="utf-8")
+
+    bridge = SpzBridge(port=fake.port, token="pinned", token_file=token_file)
+    await bridge.call("echo")
+    assert fake.seen[-1]["params"]["token"] == "pinned"
+    await bridge.close()
+
+
+async def test_token_file_appearing_later_is_picked_up(fake, tmp_path):
+    """This server usually starts before the app, so the file may not exist yet."""
+    token_file = tmp_path / "agent-bridge.token"
+    bridge = SpzBridge(port=fake.port, token_file=token_file)
+
+    await bridge.call("echo")
+    assert "token" not in fake.seen[-1]["params"]
+
+    token_file.write_text("appeared-later", encoding="utf-8")
+    await bridge.call("echo")
+    assert fake.seen[-1]["params"]["token"] == "appeared-later"
+    await bridge.close()
+
+
+def test_missing_token_file_is_not_an_error(tmp_path):
+    assert read_token_file(tmp_path / "nope.token") is None
+
+
+def test_default_token_path_is_under_the_app_name():
+    assert default_token_path().parent.name == "StableProjectorz"
+    assert default_token_path().name == "agent-bridge.token"
 
 
 async def test_response_larger_than_the_default_line_limit(fake):

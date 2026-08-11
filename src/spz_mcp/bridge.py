@@ -14,6 +14,9 @@ from __future__ import annotations
 import asyncio
 import itertools
 import json
+import os
+import sys
+from pathlib import Path
 from typing import Any
 
 DEFAULT_HOST = "127.0.0.1"
@@ -32,6 +35,33 @@ CONNECT_TIMEOUT = 5.0
 MAX_RESPONSE_BYTES = 64 * 1024 * 1024
 
 
+TOKEN_FILENAME = "agent-bridge.token"
+TOKEN_DIRNAME = "StableProjectorz"
+
+
+def default_token_path() -> Path:
+    """Where the app writes the token it generates on first launch.
+
+    Mirrors Environment.SpecialFolder.LocalApplicationData on the Unity side:
+    %LOCALAPPDATA% on Windows, ~/.local/share elsewhere.
+    """
+    if sys.platform == "win32":
+        root = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    else:
+        root = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(root) / TOKEN_DIRNAME / TOKEN_FILENAME
+
+
+def read_token_file(path: str | Path | None = None) -> str | None:
+    """The token the app generated, or None if it hasn't run with the bridge on yet."""
+    try:
+        return (Path(path) if path else default_token_path()).read_text(
+            encoding="utf-8"
+        ).strip() or None
+    except OSError:
+        return None
+
+
 class BridgeError(RuntimeError):
     """The app answered, but the command failed."""
 
@@ -47,11 +77,13 @@ class SpzBridge:
         port: int = DEFAULT_PORT,
         token: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
+        token_file: str | Path | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.token = token
         self.timeout = timeout
+        self.token_file = token_file
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
@@ -60,6 +92,17 @@ class SpzBridge:
     @property
     def address(self) -> str:
         return f"{self.host}:{self.port}"
+
+    def _resolve_token(self) -> str | None:
+        """Token to send, falling back to the file the app generates.
+
+        Read on each call until one is found, never once up front: this server
+        usually starts before StableProjectorz does, so the file may not exist yet.
+        """
+        if self.token:
+            return self.token
+        self.token = read_token_file(self.token_file)
+        return self.token
 
     async def _connect(self) -> None:
         if self._writer is not None and not self._writer.is_closing():
@@ -82,8 +125,9 @@ class SpzBridge:
             assert self._reader is not None and self._writer is not None
 
             payload: dict[str, Any] = dict(params or {})
-            if self.token:
-                payload["token"] = self.token
+            token = self._resolve_token()
+            if token:
+                payload["token"] = token
             request = {"id": str(next(self._ids)), "tool": tool, "params": payload}
 
             try:

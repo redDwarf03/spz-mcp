@@ -39,10 +39,16 @@ Optional:
 
 ```
 --agent-bridge-port=8765
---agent-bridge-token=some-secret
+--agent-bridge-token=some-secret   # pins your own secret; normally unnecessary
 ```
 
 The Unity console should log `[SPZ_Agent_Bridge] listening on 127.0.0.1:8765`.
+
+**About the token.** The bridge requires one on every request. If you don't pin one,
+the app generates a secret on first launch and writes it to
+`%LOCALAPPDATA%/StableProjectorz/agent-bridge.token` (`~/.local/share/...` elsewhere).
+This server reads that same file, so there is nothing to configure — and because it
+re-reads until it finds one, starting this server before the app is fine.
 
 ### 2. Register the server
 
@@ -65,7 +71,8 @@ Claude Desktop — in `claude_desktop_config.json`:
 }
 ```
 
-With a token or a non-default port, add `"env": {"SPZ_TOKEN": "some-secret", "SPZ_PORT": "8765"}`.
+For a non-default port, add `"env": {"SPZ_PORT": "8765"}`. The token is picked up
+automatically.
 
 ### From a local checkout
 
@@ -102,7 +109,8 @@ diagnose the situation instead of finding an unexplained empty toolbox.
 |---|---|---|
 | `--host` | `SPZ_HOST` | `127.0.0.1` |
 | `--port` | `SPZ_PORT` | `8765` |
-| `--token` | `SPZ_TOKEN` | none |
+| `--token` | `SPZ_TOKEN` | read from the token file |
+| `--token-file` | `SPZ_TOKEN_FILE` | the app's well-known location |
 
 ## Protocol
 

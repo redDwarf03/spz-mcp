@@ -5,7 +5,7 @@ import asyncio
 import os
 import sys
 
-from .bridge import DEFAULT_HOST, DEFAULT_PORT, SpzBridge
+from .bridge import DEFAULT_HOST, DEFAULT_PORT, SpzBridge, default_token_path
 from .server import run
 
 
@@ -28,14 +28,21 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--token",
         default=os.environ.get("SPZ_TOKEN"),
-        help="Shared secret, if the app was started with --agent-bridge-token (env: SPZ_TOKEN).",
+        help="Access token. Usually unnecessary: the token the app generates is read "
+        "from its well-known file (env: SPZ_TOKEN).",
+    )
+    parser.add_argument(
+        "--token-file",
+        default=os.environ.get("SPZ_TOKEN_FILE"),
+        help=f"Override the token file location (default: {default_token_path()}, "
+        "env: SPZ_TOKEN_FILE).",
     )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    bridge = SpzBridge(host=args.host, port=args.port, token=args.token)
+    bridge = SpzBridge(host=args.host, port=args.port, token=args.token, token_file=args.token_file)
     try:
         asyncio.run(run(bridge))
     except KeyboardInterrupt:
